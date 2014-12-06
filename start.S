@@ -30,6 +30,8 @@ android_magic:
 	.word	LLOADER_END
 
 reset:
+	ldr	r8, =(0xf9800000 + 0x1000)
+	str	r0, [r8]		@ download mode (1:usb,2:uart,0:boot)
 
 	ldr	r4, =0xf6504000		@ ACPU_CTRL register base
 	@ set RVBAR for cpu0
