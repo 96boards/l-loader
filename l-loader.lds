@@ -32,5 +32,5 @@ SECTIONS
 
 	/* bl1.bin (48KB - 8KB) */
 
-	LLOADER_END = 0xf9830000;
+	LLOADER_END = 0xf980c000;
 }
