@@ -26,8 +26,8 @@ android_magic:
 	.word	0x4947414d
 	.word	0x4d554e43
 	.word	0x21524542
-	.word	LLOADER_START
-	.word	LLOADER_END
+	.word	LLOADER_START		@ LLOADER_START in RAM
+	.word				@ LLOADER_END in RAM
 
 entries:
 	@ 5 entries with 7 words
