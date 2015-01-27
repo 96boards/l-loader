@@ -29,6 +29,12 @@ android_magic:
 	.word	LLOADER_START
 	.word	LLOADER_END
 
+entries:
+	@ 5 entries with 7 words
+	.space	140
+
+	.align	7
+
 reset:
 	ldr	r8, =(0xf9800000 + 0x1000)
 	str	r0, [r8]		@ download mode (1:usb,2:uart,0:boot)
