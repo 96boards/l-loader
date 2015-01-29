@@ -20,15 +20,13 @@ class generator(object):
     #
     # struct entry_head {
     #       unsigned char   magic[8];           @ ENTY
-    #       unsigned char   name[8];            @ loader/ptable/stable/bl1
+    #       unsigned char   name[8];            @ loader/bl1
     #       unsigned int    start_lba;
     #       unsigned int    count_lba;
     #       unsigned int    flag;               @ boot partition or not
     # };
-    # partition table must exist before bl1. Since RW section of BL1 just
-    # exists after BL1 RO section.
 
-    entry_name = ['loader', 'ptable', 'stable', 'bl1']
+    entry_name = ['loader', 'bl1']
 
     block_size = 512
 
@@ -38,7 +36,6 @@ class generator(object):
     # set in self.parse()
     ptable_lba = 0
     stable_lba = 0
-    bl1_lba = 0
 
     # file pointer
     p_entry = 28
@@ -105,13 +102,18 @@ class generator(object):
             if (self.idx != index):
                 print "wrong entry index: ", index, "expecting ", self.idx
             blocks = (fsize + self.block_size - 1) / self.block_size
-            if (index == 0):
-                bootp = 1
-                self.bl1_lba = blocks
-            elif (index == 3):
-                bootp = 1
-            elif (index == 1) or (index == 2):
-                bootp = 0
+            bootp = 1
+            # Maybe the file size isn't aligned. So pad it.
+            if index == 0:
+                if fsize > 2048:
+                    print 'loader size exceeds 2KB. file size: ', fsize
+                    sys.exit(4)
+                else:
+                    left_bytes = 2048 - fsize
+            elif index == 1:
+                left_bytes = fsize % self.block_size
+                if left_bytes:
+                    left_bytes = self.block_size - left_bytes
             else:
                 print "wrong entry index: ", index
                 sys.exit(5)
@@ -125,11 +127,11 @@ class generator(object):
                 # p_file is the file pointer of the new binary file
                 # At last, it means the total block size of the new binary file
                 self.p_file += self.block_size
-            print 'p_file: ', self.p_file, 'last block is ', fsize % self.block_size, 'bytes', '  tell: ', self.fp.tell()
-            # Maybe the file size isn't aligned with 512 bytes. So pad it.
-            left_bytes = fsize % self.block_size
+
+            if (index == 0):
+                self.p_file = 2048
+            print 'p_file: ', self.p_file, 'last block is ', fsize % self.block_size, 'bytes', '  tell: ', self.fp.tell(), 'left_bytes: ', left_bytes
             if left_bytes:
-                left_bytes = self.block_size - left_bytes
                 for i in range (0, left_bytes):
                     zero = struct.pack('x')
                     self.fp.write(zero)
@@ -195,10 +197,11 @@ def main(argv):
     loader = generator(output_img)
     loader.parse(img_prm_ptable)
 
-    loader.add(0, 0, img_loader)    # img_loader doesn't exist in partition table
-    loader.add(1, loader.ptable_lba, img_prm_ptable)
-    loader.add(2, loader.stable_lba, img_sec_ptable)
-    loader.add(3, loader.bl1_lba, img_bl1)      # img_bl1 doesn't exist in partition table
+    # The first 2KB is reserved
+    # The next 2KB is for loader image
+    loader.add(0, 4, img_loader)    # img_loader doesn't exist in partition table
+    # bl1.bin starts from 4KB
+    loader.add(1, 8, img_bl1)      # img_bl1 doesn't exist in partition table
 
     loader.end()
 
