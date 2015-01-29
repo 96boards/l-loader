@@ -20,13 +20,15 @@ class generator(object):
     #
     # struct entry_head {
     #       unsigned char   magic[8];           @ ENTY
-    #       unsigned char   name[8];            @ loader/bl1/fip/ptable/stable
+    #       unsigned char   name[8];            @ loader/ptable/stable/bl1
     #       unsigned int    start_lba;
     #       unsigned int    count_lba;
     #       unsigned int    flag;               @ boot partition or not
     # };
+    # partition table must exist before bl1. Since RW section of BL1 just
+    # exists after BL1 RO section.
 
-    entry_name = ['loader', 'bl1', 'fip', 'ptable', 'stable']
+    entry_name = ['loader', 'ptable', 'stable', 'bl1']
 
     block_size = 512
 
@@ -36,12 +38,11 @@ class generator(object):
     # set in self.parse()
     ptable_lba = 0
     stable_lba = 0
-    bios_lba = 0
+    bl1_lba = 0
 
     # file pointer
     p_entry = 28
     p_file = 0
-    file_bytes = 0
 
     def __init__(self, out_img):
         try:
@@ -74,22 +75,23 @@ class generator(object):
             # skip 16 bytes
             fptable.read(16)
             # get lba of both primary partition table and secondary partition table
-            data = struct.unpack("QQ", fptable.read(16))
-            self.ptable_lba = data[0]
-            self.stable_lba = data[1]
-            # skip 40 bytes
-            fptable.read(40)
+            data = struct.unpack("QQQQ", fptable.read(32))
+            self.ptable_lba = data[0] - 1
+            self.stable_lba = data[3] + 1
+            # skip 24 bytes
+            fptable.read(24)
             data = struct.unpack("i", fptable.read(4))
             pentries = data[0]
             # skip the reset in this block
             fptable.read(self.block_size - 84)
 
-            for i in range(1, pentries):
+            #for i in range(1, pentries):
                 # name is encoded as UTF-16
-                d0,lba,d2,name = struct.unpack("32sQ16s72s", fptable.read(128))
-                plainname = unicode(name, "utf-16")
-                if (not cmp(plainname[0:3], 'bios'[0:3])):
-                    bios_lba = lba
+                #d0,lba,d2,name = struct.unpack("32sQ16s72s", fptable.read(128))
+                #plainname = unicode(name, "utf-16")
+                #if (not cmp(plainname[0:7], 'l-loader'[0:7])):
+                #    print 'bl1_lba: ', lba
+                #    self.bl1_lba = lba
 
             fptable.close()
 
@@ -103,25 +105,35 @@ class generator(object):
             if (self.idx != index):
                 print "wrong entry index: ", index, "expecting ", self.idx
             blocks = (fsize + self.block_size - 1) / self.block_size
-            if (index == 0) or (index == 1):
+            if (index == 0):
                 bootp = 1
-            elif (index > 0) and (index < 5):
+                self.bl1_lba = blocks
+            elif (index == 3):
+                bootp = 1
+            elif (index == 1) or (index == 2):
                 bootp = 0
             else:
                 print "wrong entry index: ", index
                 sys.exit(5)
-            print 'lba: ', lba, 'blocks: ', blocks, 'bootp: ', bootp
+            print 'lba: ', lba, 'blocks: ', blocks, 'bootp: ', bootp, 'fname: ', fname
             # write loader and bl1
             fimg = open(fname, "rb")
             for i in range (0, blocks):
                 buf = fimg.read(self.block_size)
                 self.fp.seek(self.p_file)
                 self.fp.write(buf)
+                # p_file is the file pointer of the new binary file
+                # At last, it means the total block size of the new binary file
                 self.p_file += self.block_size
-            # It's used to count the file size that could be loaded by OnChipROM
-            if (index == 1):
-                self.file_bytes = self.p_file
-            print 'p_file: ', self.p_file, 'file_bytes: ', self.file_bytes
+            print 'p_file: ', self.p_file, 'last block is ', fsize % self.block_size, 'bytes', '  tell: ', self.fp.tell()
+            # Maybe the file size isn't aligned with 512 bytes. So pad it.
+            left_bytes = fsize % self.block_size
+            if left_bytes:
+                left_bytes = self.block_size - left_bytes
+                for i in range (0, left_bytes):
+                    zero = struct.pack('x')
+                    self.fp.write(zero)
+                print 'p_file: ', self.p_file, '  pad to: ', self.fp.tell()
 
             # write entry information at the header
             byte = struct.pack('8s8siii', 'ENTRY', self.entry_name[index], lba, blocks, bootp)
@@ -132,12 +144,15 @@ class generator(object):
 
             fimg.close()
 
+    def hex2(self, data):
+        return data > 0 and hex(data) or hex(data & 0xffffffff)
+
     def end(self):
         self.fp.seek(20)
         start,end = struct.unpack("ii", self.fp.read(8))
-        print 'start: ', start, 'end: ', end, 'file_bytes: ', self.file_bytes
-        end = start + self.file_bytes
-        print 'start: ', start, 'end: ', end
+        print "start: ", self.hex2(start), 'end: ', self.hex2(end)
+        end = start + self.p_file
+        print "start: ", self.hex2(start), 'end: ', self.hex2(end)
         self.fp.seek(24)
         byte = struct.pack('i', end)
         self.fp.write(byte)
@@ -151,13 +166,13 @@ def main(argv):
     img_sec_ptable = 'sec_ptable.img'
     output_img = 'l-loader.bin'
     try:
-        opts, args = getopt.getopt(argv,"ho:",["img_loader=","img_bl1=","img_fip=","img_prm_ptable=","img_sec_ptable="])
+        opts, args = getopt.getopt(argv,"ho:",["img_loader=","img_bl1=","img_prm_ptable=","img_sec_ptable="])
     except getopt.GetoptError:
-        print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_fip <fip.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img>'
+        print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img>'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_fip <fip.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img>'
+            print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img>'
             sys.exit(1)
         elif opt == '-o':
             output_img = arg
@@ -165,8 +180,6 @@ def main(argv):
             img_loader = arg
         elif opt in ("--img_bl1"):
             img_bl1 = arg
-        elif opt in ("--img_fip"):
-            img_fip = arg
         elif opt in ("--img_prm_ptable"):
             img_prm_ptable = arg
         elif opt in ("--img_sec_ptable"):
@@ -174,7 +187,6 @@ def main(argv):
     print '+---------------------------------------+'
     print ' Image-loader:     ', img_loader
     print ' Image-bl1:        ', img_bl1
-    print ' Image-fip:        ', img_fip
     print ' Image-prm_ptable: ', img_prm_ptable
     print ' Image-sec_ptable: ', img_sec_ptable
     print ' Ouput Image:      ', output_img
@@ -184,10 +196,9 @@ def main(argv):
     loader.parse(img_prm_ptable)
 
     loader.add(0, 0, img_loader)    # img_loader doesn't exist in partition table
-    loader.add(1, 12, img_bl1)      # img_bl1 doesn't exist in partition table
-    loader.add(2, loader.bios_lba, img_fip)
-    loader.add(3, loader.ptable_lba, img_prm_ptable)
-    loader.add(4, loader.stable_lba, img_sec_ptable)
+    loader.add(1, loader.ptable_lba, img_prm_ptable)
+    loader.add(2, loader.stable_lba, img_sec_ptable)
+    loader.add(3, loader.bl1_lba, img_bl1)      # img_bl1 doesn't exist in partition table
 
     loader.end()
 
