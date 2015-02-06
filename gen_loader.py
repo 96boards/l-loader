@@ -26,7 +26,8 @@ class generator(object):
     #       unsigned int    flag;               @ boot partition or not
     # };
 
-    entry_name = ['loader', 'bl1', 'primary partition', 'secondary partition', 'fip']
+    s1_entry_name = ['loader', 'bl1']
+    s2_entry_name = ['primary', 'second']
 
     block_size = 512
 
@@ -38,7 +39,6 @@ class generator(object):
     # set in self.parse()
     ptable_lba = 0
     stable_lba = 0
-    fip_lba = 0
 
     # file pointer
     p_entry = 0
@@ -95,9 +95,6 @@ class generator(object):
                     print 'bl1_lba: ', lba
                     self.bl1_lba = lba
                     sys.exit(1)
-                elif (not cmp(plainname[0:7], 'fastboot'[0:7])):
-                    print 'fip_lba: ', lba
-                    self.fip_lba = lba
 
             fptable.close()
 
@@ -152,7 +149,7 @@ class generator(object):
                 # At last, it means the total block size of the new binary file
                 self.p_file += self.block_size
 
-            if (self.idx == 0):
+            if (self.idx == 0) and (self.stage == 1):
                 self.p_file = 2048
             print 'p_file: ', self.p_file, 'last block is ', fsize % self.block_size, 'bytes', '  tell: ', self.fp.tell(), 'left_bytes: ', left_bytes
             if left_bytes:
@@ -162,7 +159,10 @@ class generator(object):
                 print 'p_file: ', self.p_file, '  pad to: ', self.fp.tell()
 
             # write entry information at the header
-            byte = struct.pack('8s8siii', 'ENTRY', self.entry_name[self.idx], lba, blocks, bootp)
+            if self.stage == 1:
+                byte = struct.pack('8s8siii', 'ENTRYHDR', self.s1_entry_name[self.idx], lba, blocks, bootp)
+            elif self.stage == 2:
+                byte = struct.pack('8s8siii', 'ENTRYHDR', self.s2_entry_name[self.idx], lba, blocks, bootp)
             self.fp.seek(self.p_entry)
             self.fp.write(byte)
             self.p_entry += 28
@@ -202,12 +202,11 @@ class generator(object):
         # bl1.bin starts from 4KB
         self.add(8, img_bl1)      # img_bl1 doesn't exist in partition table
 
-    def create_stage2(self, img_prm_ptable, img_sec_ptable, img_fip, output_img):
+    def create_stage2(self, img_prm_ptable, img_sec_ptable, output_img):
         print '+-----------------------------------------------------------+'
         print ' Input Images:'
         print '     primary partition table:      ', img_prm_ptable
         print '     secondary partition table:    ', img_sec_ptable
-        print '     fip:                          ', img_fip
         print ' Ouput Image:                      ', output_img
         print '+-----------------------------------------------------------+\n'
 
@@ -215,19 +214,18 @@ class generator(object):
         self.parse(img_prm_ptable)
         self.add(self.ptable_lba, img_prm_ptable)
         self.add(self.stable_lba, img_sec_ptable)
-        self.add(self.fip_lba, img_fip)
 
 def main(argv):
     stage1 = 0
     stage2 = 0
     try:
-        opts, args = getopt.getopt(argv,"ho:",["img_loader=","img_bl1=","img_prm_ptable=","img_sec_ptable=","img_fip="])
+        opts, args = getopt.getopt(argv,"ho:",["img_loader=","img_bl1=","img_prm_ptable=","img_sec_ptable="])
     except getopt.GetoptError:
-        print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img> --img_fip <fip.bin>'
+        print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img>'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img> --img_fip <fip.bin>'
+            print 'gen_loader.py -o <l-loader.bin> --img_loader <l-loader> --img_bl1 <bl1.bin> --img_prm_ptable <prm_ptable.img> --img_sec_ptable <sec_ptable.img>'
             sys.exit(1)
         elif opt == '-o':
             output_img = arg
@@ -243,9 +241,6 @@ def main(argv):
         elif opt in ("--img_sec_ptable"):
             img_sec_ptable = arg
             stage2 = 1
-        elif opt in ("--img_fip"):
-            img_fip = arg
-            stage2 = 1
 
     loader = generator(output_img)
     loader.idx = 0
@@ -260,7 +255,7 @@ def main(argv):
     elif stage1 == 1:
         loader.create_stage1(img_loader, img_bl1, output_img)
     elif stage2 == 1:
-        loader.create_stage2(img_prm_ptable, img_sec_ptable, img_fip, output_img)
+        loader.create_stage2(img_prm_ptable, img_sec_ptable, output_img)
 
     loader.end()
 
