@@ -75,3 +75,5 @@ dd if=$TEMP_FILE of=$OUT_MAIN_PTABLE bs=$SECTOR_SIZE count=34
 
 # get the backup part of partition table
 dd if=$TEMP_FILE of=$OUT_BACKUP_PTABLE skip=$BK_PTABLE_LBA bs=$SECTOR_SIZE count=33
+
+rm $TEMP_FILE
