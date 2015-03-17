@@ -26,10 +26,18 @@ android_magic:
 	.word	0x4947414d
 	.word	0x4d554e43
 	.word	0x21524542
-	.word	LLOADER_START
-	.word	LLOADER_END
+	.word	LLOADER_START		@ LLOADER_START in RAM
+	.word	0			@ LLOADER_END in RAM
+
+entries:
+	@ 5 entries with 7 words
+	.space	140
+
+	.align	7
 
 reset:
+	ldr	r8, =(0xf9800000 + 0x700)
+	str	r0, [r8]		@ download mode (1:usb,2:uart,0:boot)
 
 	ldr	r4, =0xf6504000		@ ACPU_CTRL register base
 	@ set RVBAR for cpu0
