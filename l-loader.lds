@@ -28,9 +28,5 @@ SECTIONS
 		*(.bss)
 	}
 
-	LLOADER_BL1_BIN = 0xf9802000;
-
-	/* bl1.bin (48KB - 8KB) */
-
-	LLOADER_END = 0xf9830000;
+	LLOADER_BL1_BIN = 0xf9801000;
 }
