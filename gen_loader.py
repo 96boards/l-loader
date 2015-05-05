@@ -213,11 +213,17 @@ class generator(object):
         self.stage = 2
         self.parse(img_prm_ptable)
         self.add(self.ptable_lba, img_prm_ptable)
-        self.add(self.stable_lba, img_sec_ptable)
+        if (cmp(img_sec_ptable, 'secondary partition table')):
+            # Doesn't match. It means that secondary ptable is specified.
+            self.add(self.stable_lba, img_sec_ptable)
+        else:
+            print 'Don\'t need secondary partition table'
 
 def main(argv):
     stage1 = 0
     stage2 = 0
+    img_prm_ptable = "primary partition table"
+    img_sec_ptable = "secondary partition table"
     try:
         opts, args = getopt.getopt(argv,"ho:",["img_loader=","img_bl1=","img_prm_ptable=","img_sec_ptable="])
     except getopt.GetoptError:
@@ -240,7 +246,6 @@ def main(argv):
             stage2 = 1
         elif opt in ("--img_sec_ptable"):
             img_sec_ptable = arg
-            stage2 = 1
 
     loader = generator(output_img)
     loader.idx = 0
