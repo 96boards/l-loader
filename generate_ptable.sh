@@ -14,7 +14,7 @@ case ${PTABLE} in
     SECTOR_NUMBER=81920
     ;;
   aosp|linux)
-    SECTOR_NUMBER=7553024
+    SECTOR_NUMBER=7471104
     ;;
 esac
 
@@ -50,8 +50,8 @@ case ${PTABLE} in
     sgdisk -n 8:0:+256M -t 8:8301 -u 8:A092C620-D178-4CA7-B540-C4E26BD6D2E2 -c 8:"cache" ${TEMP_FILE}
     #[9: system: 590M-2126M]
     sgdisk -n 9:0:+1536M -t 9:8300 -u 9:FC56E345-2E8E-49AE-B2F8-5B9D263FE377 -c 9:"system" ${TEMP_FILE}
-    #[10: userdata: 2126M-3662M]
-    sgdisk -n 10:0:+1536M -t 10:8300 -u 10:064111F6-463B-4CE1-876B-13F3684CE164 -c 10:"userdata" -p ${TEMP_FILE}
+    #[10: userdata: 2126M-End]
+    sgdisk -n -E -t 10:8300 -u 10:064111F6-463B-4CE1-876B-13F3684CE164 -c 10:"userdata" -p ${TEMP_FILE}
     ;;
   linux)
     dd if=/dev/zero of=${TEMP_FILE} bs=${SECTOR_SIZE} count=${SECTOR_NUMBER}
