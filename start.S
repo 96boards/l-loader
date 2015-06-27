@@ -17,6 +17,8 @@
 
 #define CPU_CTRL_AARCH64_MODE		(1 << 7)
 
+#define SC_PERIPH_CLKEN3		0x230
+#define SC_PERIPH_RSTDIS3		0x334
 	.global	_start
 _start:
 	b	reset
@@ -61,6 +63,25 @@ reset:
 	add	r5, r5, #0x100		@ Iterate ACPU_SC_CPUx_CTRL
 	cmp	r5, r6
 	ble	2b
+
+	/*
+	 * Prepare UART3 without baud rate initialization.
+	 * So always output on UART0 in l-loader.
+	 */
+	ldr	r4, =0xf7010188		@ UART3_RXD IOMG register
+	mov	r0, #1
+	str	r0, [r4]
+	str	r0, [r4, #4]		@ UART3_TXD IOMG register
+	ldr	r1, [r4]
+
+	ldr	r4, =0xf7030000		@ PERI_CTRL register base
+	@ By default, CLK_TXCO is the parent of CLK_UART3 in SC_CLK_SEL0
+
+	ldr	r5, =SC_PERIPH_RSTDIS3	@ unreset
+	ldr	r6, =SC_PERIPH_CLKEN3	@ enable PCLK
+	mov	r0, #(1 << 7)		@ bit'7' (UART3)
+	str	r0, [r4, r5]
+	str	r0, [r4, r6]
 
 	@ dump log message
 	adr	r0, str_aarch64
