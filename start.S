@@ -65,9 +65,15 @@ reset:
 	ble	2b
 
 	/*
-	 * Prepare UART3 without baud rate initialization.
+	 * Prepare UART2 & UART3 without baud rate initialization.
 	 * So always output on UART0 in l-loader.
 	 */
+	ldr	r4, =0xf70100e0		@ UART2_RXD IOMG register
+	mov	r0, #0
+	str	r0, [r4]
+	str	r0, [r4, #4]		@ UART2_TXD IOMG register
+	ldr	r0, [r4]
+
 	ldr	r4, =0xf7010188		@ UART3_RXD IOMG register
 	mov	r0, #1
 	str	r0, [r4]
@@ -79,7 +85,7 @@ reset:
 
 	ldr	r5, =SC_PERIPH_RSTDIS3	@ unreset
 	ldr	r6, =SC_PERIPH_CLKEN3	@ enable PCLK
-	mov	r0, #(1 << 7)		@ bit'7' (UART3)
+	mov	r0, #(3 << 6)		@ bit'6' & bit'7' (UART2 & UART3)
 	str	r0, [r4, r5]
 	str	r0, [r4, r6]
 
