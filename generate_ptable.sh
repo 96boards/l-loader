@@ -13,10 +13,10 @@ case ${PTABLE} in
   tiny)
     SECTOR_NUMBER=81920
     ;;
-  aosp-4G|linux-4G)
+  aosp-4g|linux-4g)
     SECTOR_NUMBER=7471104
     ;;
-  aosp-8G|linux-8G)
+  aosp-8g|linux-8g)
     SECTOR_NUMBER=15269888
     ;;
 esac
