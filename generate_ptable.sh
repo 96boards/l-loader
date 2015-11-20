@@ -76,7 +76,7 @@ case ${PTABLE} in
     #[8: cache: 334M-590M]
     sgdisk -n 8:0:+256M -t 8:8301 -u 8:A092C620-D178-4CA7-B540-C4E26BD6D2E2 -c 8:"cache" ${TEMP_FILE}
     #[9: system: 590M-End]
-    sgdisk -n -E -t 9:0700 -u 9:FC56E345-2E8E-49AE-B2F8-5B9D263FE377 -c 9:"system" ${TEMP_FILE}
+    sgdisk -n -E -t 9:8300 -u 9:FC56E345-2E8E-49AE-B2F8-5B9D263FE377 -c 9:"system" ${TEMP_FILE}
     ;;
 esac
 
