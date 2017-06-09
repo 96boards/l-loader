@@ -4,19 +4,20 @@ LD=$(CROSS_COMPILE)ld
 OBJCOPY=$(CROSS_COMPILE)objcopy
 BL1=bl1.bin
 PTABLE_LST:=aosp-4g aosp-8g linux-4g linux-8g
+PYTHON=python
 
 all: l-loader.bin ptable.img
 
 l-loader.bin: start.o debug.o $(BL1)
 	$(LD) -Bstatic -Tl-loader.lds -Ttext 0xf9800800 start.o debug.o -o loader
 	$(OBJCOPY) -O binary loader temp
-	python gen_loader.py -o $@ --img_loader=temp --img_bl1=$(BL1)
+	$(PYTHON) gen_loader.py -o $@ --img_loader=temp --img_bl1=$(BL1)
 	rm -f loader temp
 
 ptable.img:
 	for ptable in $(PTABLE_LST); do \
 		sudo PTABLE=$${ptable} bash -x generate_ptable.sh;\
-		python gen_loader.py -o ptable-$${ptable}.img --img_prm_ptable=prm_ptable.img;\
+		$(PYTHON) gen_loader.py -o ptable-$${ptable}.img --img_prm_ptable=prm_ptable.img;\
 	done
 
 clean:
